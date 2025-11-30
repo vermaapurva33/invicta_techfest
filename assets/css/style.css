@@ -7,12 +7,125 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap");
 
-:root {
-  --primary: #4e54c8;
-  --secondary: #8f94fb;
-  --text-dark: #333;
-  --text-light: #fff;
-  --bg-light: #f4f6f9;
+/* assets/css/style.css */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1a1a2e;
+    color: #ffffff;
+    min-height: 100vh;
+}
+
+/* --- Layout Containers --- */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width : 100%;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.auth-card {
+    background: #16213e;
+    padding: 40px;
+    width: 100%;
+    max-width: 700px; /* INCREASED WIDTH for 2-column layout */
+    border-radius: 12px;
+    border: 1px solid #533483;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    text-align: center;
+}
+
+.auth-card h1 {
+    color: #e94560;
+    margin: 0 0 10px 0;
+}
+.auth-card p {
+    color: #a2a8d3;
+    margin-bottom: 30px;
+}
+
+/* --- The Grid Form --- */
+.register-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Create 2 equal columns */
+    gap: 20px; /* Space between columns and rows */
+    text-align: left;
+}
+
+/* Special class for fields that should span the whole width */
+.full-width {
+    grid-column: span 2; 
+}
+
+/* On Mobile, force everything to 1 column */
+@media (max-width: 600px) {
+    .register-form {
+        grid-template-columns: 1fr;
+    }
+    .full-width {
+        grid-column: span 1;
+    }
+}
+
+/* --- Inputs & Labels --- */
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #a2a8d3;
+    font-size: 0.9rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    background: #0f3460; /* Lighter blue for better contrast */
+    border: 1px solid #533483;
+    color: white;
+    border-radius: 6px;
+    font-size: 1rem;
+    outline: none;
+}
+
+.form-control:focus {
+    border-color: #e94560;
+}
+
+/* --- Buttons & Links --- */
+.btn-submit {
+    padding: 14px;
+    background: #e94560;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-top: 10px;
+    transition: 0.3s;
+}
+
+.btn-submit:hover {
+    background: #c72c41;
+}
+
+.login-link {
+    margin-top: 25px;
+    color: #a2a8d3;
+}
+.login-link a {
+    color: #fff;
+    text-decoration: underline;
+}
+.login-link a:hover {
+    color: #e94560;
 }
 
 * {
