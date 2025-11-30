@@ -195,3 +195,12 @@ CREATE TABLE registrations (
     FOREIGN KEY (team_id) REFERENCES teams(team_id) ON DELETE CASCADE,
     FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE
 );
+
+
+
+-- 1. Add the password column
+ALTER TABLE judges 
+ADD COLUMN password VARCHAR(255) NOT NULL DEFAULT '12345';
+
+-- 2. (Optional) Set a specific password for a specific judge if you have one
+-- UPDATE judges SET password = 'securepassword' WHERE judge_id = 1;

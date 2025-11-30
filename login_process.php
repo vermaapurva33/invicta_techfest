@@ -28,6 +28,12 @@ if (isset($_POST['btn_login'])) {
             $table = "clubs";
             $id_column = "club_id";
             break;
+
+        case 'judge':
+            $table = "judges";
+            $id_column = "judge_id";
+            break;
+            
         default:
             die("Invalid Role Selected");
     }
