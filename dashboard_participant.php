@@ -2,6 +2,7 @@
 session_start();
 require 'includes/db_connect.php';
 
+// 1. SECURITY: Only Participants
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'participant') {
     header("Location: index.php");
     exit();
@@ -56,7 +57,45 @@ if (isset($_POST['add_member'])) {
     }
 }
 
-// --- LOGIC 3: REGISTER TEAM FOR EVENT ---
+// --- LOGIC 3: REMOVE MEMBER / DELETE TEAM (UPDATED) ---
+if (isset($_POST['remove_member'])) {
+    $target_member_id = $_POST['member_id'];
+    $tid = $_POST['team_id'];
+
+    // Verify Leader
+    $leader_check = $conn->query("SELECT leader FROM teams WHERE team_id = $tid");
+    $team_row = $leader_check->fetch_assoc();
+
+    if ($team_row && $team_row['leader'] == $p_id) {
+        
+        if ($target_member_id == $p_id) {
+            // CASE A: Leader removing self -> DELETE ENTIRE TEAM
+            // Cascading delete will handle members and registrations
+            $del_stmt = $conn->prepare("DELETE FROM teams WHERE team_id = ?");
+            $del_stmt->bind_param("i", $tid);
+            
+            if ($del_stmt->execute()) {
+                $message = "<script>alert('🗑️ You disbanded the team. It has been deleted.');</script>";
+            } else {
+                $message = "<script>alert('❌ Error deleting team.');</script>";
+            }
+        } else {
+            // CASE B: Leader removing a member -> DELETE JUST MEMBER
+            $del_stmt = $conn->prepare("DELETE FROM forms WHERE p_id = ? AND t_id = ?");
+            $del_stmt->bind_param("ii", $target_member_id, $tid);
+            
+            if ($del_stmt->execute()) {
+                $message = "<script>alert('✅ Teammate removed successfully.');</script>";
+            } else {
+                $message = "<script>alert('❌ Error removing member.');</script>";
+            }
+        }
+    } else {
+        $message = "<script>alert('❌ Only the Team Leader can manage members.');</script>";
+    }
+}
+
+// --- LOGIC 4: REGISTER TEAM FOR EVENT ---
 if (isset($_POST['reg_team'])) {
     $tid = $_POST['team_id'];
     $eid = $_POST['event_id'];
@@ -150,9 +189,25 @@ if (isset($_POST['reg_team'])) {
         .btn:hover { background: #c72c41; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #533483; color: #fff; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #533483; color: #fff; vertical-align: middle; }
         th { background: #0f3460; color: #e94560; }
         
+        /* Member List Styling */
+        .member-list { list-style: none; padding: 0; margin: 0; }
+        .member-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .member-item:last-child { border-bottom: none; }
+        
+        .btn-remove { 
+            background: none; 
+            border: none; 
+            color: #e84118; 
+            cursor: pointer; 
+            font-size: 1.1rem; 
+            padding: 0 5px;
+            transition: 0.2s;
+        }
+        .btn-remove:hover { transform: scale(1.2); }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .main-content { margin-left: 0; width: 100%; }
@@ -165,7 +220,7 @@ if (isset($_POST['reg_team'])) {
 
     <!-- SIDEBAR -->
     <div class="sidebar">
-        <div class="logo">🚀 INVICTA</div>
+        <div class="logo">INVICTA</div>
         <div class="nav-links">
             <a href="home.php">Home</a>
             <a href="#my-teams" class="active">My Teams</a>
@@ -195,39 +250,69 @@ if (isset($_POST['reg_team'])) {
             <table>
                 <tr>
                     <th>Team Name</th>
-                    <th>Role</th>
+                    <th>Leader Name</th>
                     <th>Members</th>
                     <th>Add Member</th>
                 </tr>
                 <?php
-                $sql = "SELECT t.team_id, t.tname, t.leader 
+                $sql = "SELECT t.team_id, t.tname, t.leader, p.name as leader_name 
                         FROM teams t 
                         JOIN forms f ON t.team_id = f.t_id 
-                        WHERE f.p_id = $p_id";
+                        JOIN participants p ON t.leader = p.participant_id
+                        WHERE f.p_id = $p_id
+                        GROUP BY t.team_id"; 
                 $res = $conn->query($sql);
                 
                 if($res->num_rows > 0) {
                     while($row = $res->fetch_assoc()) {
                         $isLeader = ($row['leader'] == $p_id);
+                        
                         echo "<tr>";
                         echo "<td><b style='color:#e94560'>" . htmlspecialchars($row['tname']) . "</b></td>";
-                        echo "<td>" . ($isLeader ? '👑 Leader' : 'Member') . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leader_name']) . "</td>";
                         
-                        echo "<td>";
-                        $mem_sql = "SELECT p.name FROM participants p JOIN forms f ON p.participant_id = f.p_id WHERE f.t_id = " . $row['team_id'];
+                        // List Members
+                        echo "<td><ul class='member-list'>";
+                        $mem_sql = "SELECT p.name, p.participant_id FROM participants p JOIN forms f ON p.participant_id = f.p_id WHERE f.t_id = " . $row['team_id'];
                         $mems = $conn->query($mem_sql);
-                        while($m = $mems->fetch_assoc()) echo htmlspecialchars($m['name']) . ", ";
-                        echo "</td>";
                         
+                        while($m = $mems->fetch_assoc()) {
+                            echo "<li class='member-item'>";
+                            
+                            // Highlight leader vs regular member
+                            if ($m['participant_id'] == $row['leader']) {
+                                echo "<span style='color:#fbc531'>" . htmlspecialchars($m['name']) . "</span>";
+                            } else {
+                                echo "<span>" . htmlspecialchars($m['name']) . "</span>";
+                            }
+                            
+                            // REMOVE BUTTON LOGIC
+                            // Only show if I am leader.
+                            if ($isLeader) {
+                                // Logic: If removing self -> Delete Team. If removing other -> Remove member.
+                                $btn_icon = ($m['participant_id'] == $p_id) ? "❌" : "&times;";
+                                $confirm_msg = ($m['participant_id'] == $p_id) ? "⚠️ WARNING: Removing yourself will DELETE the entire team. Are you sure?" : "Remove this member?";
+                                
+                                echo "<form method='POST' style='display:inline;' onsubmit=\"return confirm('$confirm_msg');\">
+                                        <input type='hidden' name='team_id' value='".$row['team_id']."'>
+                                        <input type='hidden' name='member_id' value='".$m['participant_id']."'>
+                                        <button type='submit' name='remove_member' class='btn-remove' title='Remove'>$btn_icon</button>
+                                    </form>";
+                            }
+                            echo "</li>";
+                        }
+                        echo "</ul></td>";
+                        
+                        // Add Member Action
                         echo "<td>";
                         if($isLeader) {
                             echo "<form method='POST' style='display:flex; gap:5px;'>
                                     <input type='hidden' name='team_id' value='".$row['team_id']."'>
                                     <input type='email' name='email' placeholder='Email' class='form-control' style='padding:5px; height:35px;' required>
                                     <button type='submit' name='add_member' class='btn' style='padding:5px 10px; margin:0; height:35px;'>+</button>
-                                  </form>";
+                                </form>";
                         } else {
-                            echo "<span style='color:#666;'>N/A</span>";
+                            echo "<span style='color:#666;'>Leader Only</span>";
                         }
                         echo "</td></tr>";
                     }
@@ -289,12 +374,11 @@ if (isset($_POST['reg_team'])) {
                     <th>Team</th>
                     <th>Date</th>
                     <th>Score</th>
-                    <th>Prize Won</th> <!-- NEW COLUMN -->
+                    <th>Prize Won</th>
                 </tr>
                 <?php
-                // NEW JOIN QUERY: Connects prizes table to check for winnings
                 $reg_sql = "SELECT e.event_name, e.event_date, t.tname, r.score, 
-                                   pz.prize_name, pz.value as prize_value
+                                pz.prize_name, pz.value as prize_value
                             FROM registrations r
                             JOIN events e ON r.event_id = e.event_id
                             JOIN teams t ON r.team_id = t.team_id
@@ -308,12 +392,11 @@ if (isset($_POST['reg_team'])) {
                     while($r = $regs->fetch_assoc()) {
                         $score_display = isset($r['score']) ? "<b style='color:#4cd137'>".$r['score']."</b>" : "<i style='color:#a2a8d3'>Pending</i>";
                         
-                        // PRIZE DISPLAY LOGIC
                         $prize_display = "-";
                         if (!empty($r['prize_name'])) {
-                            $prize_display = "🏆 <b style='color:#fbc531'>" . htmlspecialchars($r['prize_name']) . "</b>";
+                            $prize_display = "<b style='color:#fbc531'>" . htmlspecialchars($r['prize_name']) . "</b>";
                             if($r['prize_value'] > 0) {
-                                $prize_display .= " <span style='color:#fff; font-size:0.9rem;'>(₹" . number_format($r['prize_value']) . ")</span>";
+                                $prize_display .= " <span style='color:#fff; font-size:0.9rem;'>(Rs. " . number_format($r['prize_value']) . ")</span>";
                             }
                         }
 
@@ -322,7 +405,7 @@ if (isset($_POST['reg_team'])) {
                         echo "<td>" . htmlspecialchars($r['tname']) . "</td>";
                         echo "<td>" . htmlspecialchars($r['event_date']) . "</td>";
                         echo "<td>" . $score_display . "</td>";
-                        echo "<td>" . $prize_display . "</td>"; // Display Prize
+                        echo "<td>" . $prize_display . "</td>";
                         echo "</tr>";
                     }
                 } else {
