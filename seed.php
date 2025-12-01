@@ -11,7 +11,7 @@ echo "<style>
     h2 { border-bottom: 1px solid #533483; padding-bottom: 10px; margin-top: 30px; color: #e94560; }
 </style>";
 
-echo "<h1>🌱 Seeding Invicta Database</h1>";
+echo "<h1>🌱 Seeding Invicta Database (No Events)</h1>";
 
 // ======================================================
 // 1. CLEANUP (WIPE EVERYTHING)
@@ -21,13 +21,12 @@ $conn->query("SET FOREIGN_KEY_CHECKS = 0");
 
 $tables = [
     'registrations', 'event_judges', 'event_volunteers', 'funds', 'prizes', 
-    'forms', 'teams', 'events', 'bookings', 'accommodation', 
+    'forms', 'teams', 'events', 'bookings', 'accommodation', 'room_types', // Added room_types
     'volunteers', 'judges', 'coordinators', 'mentors', 'participants', 'sponsors', 'clubs'
-    // Note: 'room_types' is merged into accommodation in your new schema, so no need to drop it if it doesn't exist
 ];
 
 foreach ($tables as $table) {
-    // Check if table exists before truncating to avoid errors
+    // Check if table exists before truncating
     $check = $conn->query("SHOW TABLES LIKE '$table'");
     if($check->num_rows > 0) {
         if ($conn->query("TRUNCATE TABLE $table")) {
@@ -116,23 +115,37 @@ if($conn->query($sql)) echo "<div class='success'>✅ Added Sponsors</div>";
 
 
 // ======================================================
-// 3. INSERT INVENTORY & TEAMS
+// 3. INSERT ACCOMMODATION (Separate Tables Logic)
 // ======================================================
-echo "<h2>🏨 Setting Up Inventory & Teams...</h2>";
+echo "<h2>🏨 Setting Up Accommodation...</h2>";
 
-// --- H. ACCOMMODATION (Mixed Type & Inventory) ---
-// We create specific rooms with Types and Capacities
-$sql = "INSERT INTO accommodation (room_number, room_type, cost, capacity, current_occupancy) VALUES 
-('H-101', 'Triple Sharing', 500.00, 3, 0),
-('H-102', 'Triple Sharing', 500.00, 3, 0),
-('H-103', 'Triple Sharing', 500.00, 3, 0),
-('A-201', 'Double AC', 1200.00, 2, 0),
-('A-202', 'Double AC', 1200.00, 2, 0),
-('V-001', 'Single Luxury', 2500.00, 1, 0)";
+// 1. Room Types (Definitions)
+$sql = "INSERT INTO room_types (type_name, cost, capacity) VALUES 
+('Triple Sharing (Non-AC)', 500.00, 3),
+('Double Sharing (AC)', 1200.00, 2),
+('Single Luxury', 2500.00, 1)";
 
-if($conn->query($sql)) echo "<div class='success'>✅ Added Accommodation Rooms</div>";
+if($conn->query($sql)) echo "<div class='success'>✅ Added Room Types (IDs: 1, 2, 3)</div>";
 
-// --- I. TEAMS (Independent of Events) ---
+// 2. Physical Rooms (Linked to Type ID)
+// Using type_id 1 (Triple), 2 (Double), 3 (Single)
+$sql = "INSERT INTO accommodation (room_number, type_id, current_occupancy) VALUES 
+('H-101', 1, 0), -- Triple
+('H-102', 1, 0), -- Triple
+('H-103', 1, 0), -- Triple
+('A-201', 2, 0), -- Double
+('A-202', 2, 0), -- Double
+('V-001', 3, 0)";
+
+if($conn->query($sql)) echo "<div class='success'>✅ Added Physical Rooms linked to Types</div>";
+
+
+// ======================================================
+// 4. INSERT TEAMS & BOOKINGS (No Events Yet)
+// ======================================================
+echo "<h2>👥 Setting Up Teams & Bookings...</h2>";
+
+// --- I. TEAMS ---
 // Team 1: 'Code Warriors' led by Rahul (ID 1)
 // Team 2: 'Mecha Titans' led by Priya (ID 2)
 $sql = "INSERT INTO teams (tname, leader, mentor) VALUES 
@@ -151,15 +164,17 @@ $sql = "INSERT INTO forms (p_id, t_id) VALUES
 if($conn->query($sql)) echo "<div class='success'>✅ Added Team Members</div>";
 
 // --- K. BOOKINGS (Accommodation) ---
-// Rahul(1) books H-101
+// Rahul(1) books Room 1 (H-101)
+// We need dates for the booking
 $sql = "INSERT INTO bookings (participant_id, room_id, checkin_date, checkout_date) VALUES 
 (1, 1, '2025-12-10', '2025-12-12')";
-// Update Occupancy
+
+// Update Occupancy for Room 1
 $conn->query("UPDATE accommodation SET current_occupancy = 1 WHERE room_id = 1");
 
 if($conn->query($sql)) echo "<div class='success'>✅ Created Booking for Rahul</div>";
 
 echo "<hr><h2 style='color:#4cd137'>🎉 Database Seeded Successfully!</h2>";
-echo "<p style='font-size:1.2rem'>You can now log in using any email above with password: <b>12345</b></p>";
+echo "<p style='font-size:1.2rem'>Events table is empty as requested.</p>";
 echo "<a href='index.php' style='display:inline-block; padding:10px 20px; background:#e94560; color:white; text-decoration:none; border-radius:5px;'>Go to Login</a>";
 ?>
