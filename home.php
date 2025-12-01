@@ -11,13 +11,20 @@
         <div class="nav-links">
             <a href="#" class="active">Home</a>
             <a href="#events">Events</a>
-            <a href="#accommodation">Stay</a>
+            c
+
+            <!-- NEW: Show Accommodation tab ONLY for Participants -->
+            <?php if(isset($_SESSION['user_id']) && $_SESSION['role'] == 'participant'): ?>
+                <a href="accommodation.php" style="color:#e94560;">🏠 Book Stay</a>
+            <?php endif; ?>
+
             <?php if(isset($_SESSION['user_id'])): ?>
                 <a href="dashboard_<?php echo $_SESSION['role']; ?>.php">Dashboard</a>
                 <a href="logout.php">Logout</a>
             <?php else: ?>
                 <a href="index.php">Login / Register</a>
             <?php endif; ?>
+            
         </div>
     </div>
 
