@@ -27,7 +27,7 @@ if (isset($_POST['btn_register'])) {
         echo "<script>
                 alert('This email is already registered! Please Login.');
                 window.location.href='index.php';
-              </script>";
+            </script>";
     } else {
         // 3. Insert New User
         $insertStmt = $conn->prepare("INSERT INTO participants (name, email, password, phone, college, department, year) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -43,7 +43,7 @@ if (isset($_POST['btn_register'])) {
             echo "<script>
                     alert('Registration Successful! Please Login.');
                     window.location.href='index.php';
-                  </script>";
+                </script>";
         } else {
             echo "Error: " . $conn->error;
         }

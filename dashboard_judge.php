@@ -215,9 +215,9 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
                     <tbody>
                         <?php
                         $teams_sql = "SELECT t.team_id, t.tname, r.score 
-                                      FROM teams t 
-                                      JOIN registrations r ON t.team_id = r.team_id 
-                                      WHERE r.event_id = $selected_event_id 
+                                    FROM teams t 
+                                    JOIN registrations r ON t.team_id = r.team_id 
+                                    WHERE r.event_id = $selected_event_id 
                                       ORDER BY r.score DESC"; // Show highest score first
                         $teams = $conn->query($teams_sql);
 
@@ -233,8 +233,8 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
                                         <input type="hidden" name="team_id" value="<?php echo $t['team_id']; ?>">
                                         <input type="hidden" name="event_id" value="<?php echo $selected_event_id; ?>">
                                         <input type="number" name="score" class="score-input" 
-                                               value="<?php echo $t['score'] ? $t['score'] : 0; ?>" 
-                                               min="0" max="100" required>
+                                            value="<?php echo $t['score'] ? $t['score'] : 0; ?>" 
+                                            min="0" max="100" required>
                                     </td>
                                     <td>
                                         <button type="submit" name="update_score" class="btn-update">Update</button>
