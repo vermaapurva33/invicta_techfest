@@ -2,7 +2,7 @@
 session_start();
 require 'includes/db_connect.php';
 
-// 1. SECURITY: Strict Judge Only Access
+// 1. SECURITY
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'judge') {
     header("Location: index.php");
     exit();
@@ -21,13 +21,48 @@ if (isset($_POST['update_score'])) {
     $stmt->bind_param("iii", $score, $team_id, $event_id);
     
     if ($stmt->execute()) {
-        $message = "<div class='alert success'>✅ Score updated for Team #$team_id</div>";
+        $message = "<div class='alert success'>✅ Score updated.</div>";
     } else {
         $message = "<div class='alert error'>❌ Error updating score.</div>";
     }
 }
 
-// 3. PERSIST SELECTED EVENT
+// 3. HANDLE PUBLISH RESULTS (Auto-Assign Prizes)
+if (isset($_POST['publish_results'])) {
+    $event_id = $_POST['event_id'];
+
+    // A. Reset existing winners for this event (Clean Slate)
+    $conn->query("UPDATE prizes SET winning_team_id = NULL WHERE event_id = $event_id");
+
+    // B. Get Teams ordered by Rank (Highest Score First)
+    $rank_sql = "SELECT team_id FROM registrations WHERE event_id = $event_id ORDER BY score DESC";
+    $rank_res = $conn->query($rank_sql);
+    
+    // C. Get Prizes ordered by Value (Highest Value First)
+    $prize_sql = "SELECT prize_id FROM prizes WHERE event_id = $event_id ORDER BY value DESC";
+    $prize_res = $conn->query($prize_sql);
+
+    $teams = [];
+    while($row = $rank_res->fetch_assoc()) $teams[] = $row['team_id'];
+
+    $prizes = [];
+    while($row = $prize_res->fetch_assoc()) $prizes[] = $row['prize_id'];
+
+    // D. Assign Prizes (Match Top Team to Top Prize)
+    $count = min(count($teams), count($prizes)); // Avoid errors if fewer teams than prizes
+    
+    if($count > 0) {
+        for($i=0; $i < $count; $i++) {
+            $tid = $teams[$i];
+            $pid = $prizes[$i];
+            $conn->query("UPDATE prizes SET winning_team_id = $tid WHERE prize_id = $pid");
+        }
+        $message = "<div class='alert success'>🏆 Results Published! Prizes have been awarded based on Rank.</div>";
+    } else {
+        $message = "<div class='alert error'>⚠️ No teams or prizes found to assign.</div>";
+    }
+}
+
 $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
 ?>
 
@@ -41,7 +76,6 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
         body { background: #1a1a2e; display: block; }
         .main-content { max-width: 1000px; margin: 40px auto; padding: 20px; }
         
-        /* Navbar */
         .navbar {
             background: #16213e;
             padding: 15px 30px;
@@ -59,13 +93,11 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
             margin-bottom: 30px;
         }
 
-        /* Grading Table */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid #533483; color: #fff; vertical-align: middle; }
         th { background: #0f3460; color: #e94560; }
         tr:hover { background: rgba(255,255,255,0.05); }
 
-        /* Inputs */
         .event-select {
             width: 100%;
             padding: 15px;
@@ -97,11 +129,25 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
         }
         .btn-update:hover { background: #c72c41; }
 
+        .btn-publish {
+            width: 100%;
+            padding: 15px;
+            background: #4cd137; /* Green for Publish */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: 0.3s;
+        }
+        .btn-publish:hover { background: #44bd32; box-shadow: 0 0 15px rgba(76, 209, 55, 0.4); }
+
         .alert { padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
         .success { background: rgba(76, 209, 55, 0.2); border: 1px solid #4cd137; color: #4cd137; }
         .error { background: rgba(232, 65, 24, 0.2); border: 1px solid #e84118; color: #e84118; }
         
-        /* Logout Button Style */
         .btn-logout {
             background: #e94560; 
             padding: 8px 15px; 
@@ -111,15 +157,12 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
             font-weight: bold;
             transition: 0.3s;
         }
-        .btn-logout:hover { background: #c72c41; }
     </style>
 </head>
 <body>
 
     <nav class="navbar">
         <div style="font-size: 1.5rem; font-weight: bold; color: #e94560;">⚖️ JUDGE PANEL</div>
-        
-        <!-- LOGOUT WITH CONFIRMATION -->
         <a href="logout.php" class="btn-logout" onclick="return confirm('Are you sure you want to logout?');">Logout</a>
     </nav>
 
@@ -134,7 +177,6 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
                 <select name="event_id" class="event-select" onchange="this.form.submit()">
                     <option value="0">-- Choose Assigned Event --</option>
                     <?php
-                    // Logic: Get events linked to this Judge via event_judges table
                     $sql = "SELECT e.event_id, e.event_name, e.event_date 
                             FROM events e 
                             JOIN event_judges ej ON e.event_id = ej.event_id 
@@ -149,11 +191,9 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
             </form>
         </div>
 
-        <!-- STEP 2: GRADING TABLE (Only shows if event selected) -->
+        <!-- STEP 2: GRADING & PUBLISHING -->
         <?php if($selected_event_id > 0): ?>
-            
             <?php
-            // Get Event Name for Title
             $evt_q = $conn->query("SELECT event_name FROM events WHERE event_id = $selected_event_id");
             $evt_name = $evt_q->fetch_assoc()['event_name'];
             ?>
@@ -174,13 +214,11 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
                     </thead>
                     <tbody>
                         <?php
-                        // Logic: Get Teams registered for this specific event
-                        // Join 'teams' with 'registrations'
                         $teams_sql = "SELECT t.team_id, t.tname, r.score 
                                       FROM teams t 
                                       JOIN registrations r ON t.team_id = r.team_id 
                                       WHERE r.event_id = $selected_event_id 
-                                      ORDER BY t.tname ASC";
+                                      ORDER BY r.score DESC"; // Show highest score first
                         $teams = $conn->query($teams_sql);
 
                         if($teams->num_rows > 0) {
@@ -190,7 +228,6 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
                                 <td>#<?php echo $t['team_id']; ?></td>
                                 <td style="font-weight:bold; font-size:1.1rem;"><?php echo htmlspecialchars($t['tname']); ?></td>
                                 
-                                <!-- Individual Form for each row -->
                                 <form method="POST">
                                     <td>
                                         <input type="hidden" name="team_id" value="<?php echo $t['team_id']; ?>">
@@ -211,6 +248,15 @@ $selected_event_id = isset($_REQUEST['event_id']) ? $_REQUEST['event_id'] : 0;
                         ?>
                     </tbody>
                 </table>
+
+                <!-- PUBLISH BUTTON (Only shows if teams exist) -->
+                <?php if($teams->num_rows > 0): ?>
+                    <form method="POST" onsubmit="return confirm('⚠️ Are you sure? This will finalize the results and assign prizes to the top teams based on the current scores.');">
+                        <input type="hidden" name="event_id" value="<?php echo $selected_event_id; ?>">
+                        <button type="submit" name="publish_results" class="btn-publish">🚀 Finalize & Publish Prizes</button>
+                    </form>
+                <?php endif; ?>
+
             </div>
         <?php endif; ?>
 

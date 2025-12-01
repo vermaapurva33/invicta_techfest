@@ -2,7 +2,6 @@
 session_start();
 require 'includes/db_connect.php';
 
-// 1. SECURITY: Only Participants
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'participant') {
     header("Location: index.php");
     exit();
@@ -20,7 +19,6 @@ if (isset($_POST['create_team'])) {
     
     if($stmt->execute()) {
         $new_tid = $stmt->insert_id;
-        // Add Leader to Team Members
         $stmt2 = $conn->prepare("INSERT INTO forms (p_id, t_id) VALUES (?, ?)");
         $stmt2->bind_param("ii", $p_id, $new_tid);
         $stmt2->execute();
@@ -35,7 +33,6 @@ if (isset($_POST['add_member'])) {
     $email = trim($_POST['email']);
     $tid = $_POST['team_id'];
     
-    // Find User
     $stmt = $conn->prepare("SELECT participant_id FROM participants WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
@@ -44,7 +41,6 @@ if (isset($_POST['add_member'])) {
     if($row = $result->fetch_assoc()) {
         $new_pid = $row['participant_id'];
         
-        // Check if already in team
         $check = $conn->query("SELECT * FROM forms WHERE p_id = $new_pid AND t_id = $tid");
         if($check->num_rows == 0) {
             $stmt2 = $conn->prepare("INSERT INTO forms (p_id, t_id) VALUES (?, ?)");
@@ -60,35 +56,27 @@ if (isset($_POST['add_member'])) {
     }
 }
 
-// --- LOGIC 3: REGISTER TEAM FOR EVENT (UPDATED) ---
+// --- LOGIC 3: REGISTER TEAM FOR EVENT ---
 if (isset($_POST['reg_team'])) {
     $tid = $_POST['team_id'];
     $eid = $_POST['event_id'];
     
-    // A. Check if *I* am already participating in this event via ANY team
-    $check_dup_sql = "SELECT r.team_id 
-                      FROM registrations r
-                      JOIN forms f ON r.team_id = f.t_id
-                      WHERE f.p_id = ? AND r.event_id = ?";
+    $check_dup_sql = "SELECT r.team_id FROM registrations r JOIN forms f ON r.team_id = f.t_id WHERE f.p_id = ? AND r.event_id = ?";
     $stmt_dup = $conn->prepare($check_dup_sql);
     $stmt_dup->bind_param("ii", $p_id, $eid);
     $stmt_dup->execute();
     $res_dup = $stmt_dup->get_result();
 
     if ($res_dup->num_rows > 0) {
-        $message = "<script>alert('⛔ Registration Blocked: You are already participating in this event with another team!');</script>";
+        $message = "<script>alert('⛔ Registration Blocked: You are already participating in this event!');</script>";
     } else {
-        // B. Verify I am the Leader of the selected team
         $chk = $conn->query("SELECT leader FROM teams WHERE team_id = $tid");
         $team_data = $chk->fetch_assoc();
         
         if($team_data && $team_data['leader'] == $p_id) {
-            
-            // C. Check if this specific team is already registered (Double check)
             $team_dup = $conn->query("SELECT * FROM registrations WHERE team_id=$tid AND event_id=$eid");
             
             if($team_dup->num_rows == 0) {
-                // D. Proceed to Register
                 $stmt = $conn->prepare("INSERT INTO registrations (team_id, event_id) VALUES (?, ?)");
                 $stmt->bind_param("ii", $tid, $eid);
                 if($stmt->execute()) {
@@ -111,7 +99,6 @@ if (isset($_POST['reg_team'])) {
     <title>Student Dashboard | Invicta</title>
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
-        /* SIDEBAR LAYOUT */
         body { display: flex; background: #1a1a2e; font-family: 'Segoe UI', sans-serif; margin: 0; min-height: 100vh; }
         
         .sidebar {
@@ -129,7 +116,6 @@ if (isset($_POST['reg_team'])) {
         
         .main-content { margin-left: 250px; padding: 40px; width: calc(100% - 250px); box-sizing: border-box; }
 
-        /* CARDS & FORMS */
         .card {
             background: #16213e;
             padding: 25px;
@@ -163,7 +149,6 @@ if (isset($_POST['reg_team'])) {
         }
         .btn:hover { background: #c72c41; }
 
-        /* TABLE */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #533483; color: #fff; }
         th { background: #0f3460; color: #e94560; }
@@ -228,14 +213,12 @@ if (isset($_POST['reg_team'])) {
                         echo "<td><b style='color:#e94560'>" . htmlspecialchars($row['tname']) . "</b></td>";
                         echo "<td>" . ($isLeader ? '👑 Leader' : 'Member') . "</td>";
                         
-                        // Members
                         echo "<td>";
                         $mem_sql = "SELECT p.name FROM participants p JOIN forms f ON p.participant_id = f.p_id WHERE f.t_id = " . $row['team_id'];
                         $mems = $conn->query($mem_sql);
                         while($m = $mems->fetch_assoc()) echo htmlspecialchars($m['name']) . ", ";
                         echo "</td>";
                         
-                        // Add Member Action
                         echo "<td>";
                         if($isLeader) {
                             echo "<form method='POST' style='display:flex; gap:5px;'>
@@ -262,8 +245,6 @@ if (isset($_POST['reg_team'])) {
             
             <form method="POST">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    
-                    <!-- 1. Select Event -->
                     <div>
                         <label>Select Event</label>
                         <select name="event_id" class="form-control" required>
@@ -277,13 +258,11 @@ if (isset($_POST['reg_team'])) {
                         </select>
                     </div>
 
-                    <!-- 2. Select Team -->
                     <div>
                         <label>Select Your Team</label>
                         <select name="team_id" class="form-control" required>
                             <option value="">-- Choose Team --</option>
                             <?php
-                            // Only fetching teams where I am leader
                             $myTeams = $conn->query("SELECT team_id, tname FROM teams WHERE leader = $p_id");
                             if($myTeams->num_rows > 0) {
                                 while($t = $myTeams->fetch_assoc()) {
@@ -301,41 +280,53 @@ if (isset($_POST['reg_team'])) {
             </form>
         </div>
         
-        <!-- SECTION 3: MY REGISTRATIONS (UPDATED WITH SCORE) -->
+        <!-- SECTION 3: MY REGISTRATIONS & PRIZES -->
         <div class="card" id="my-events">
-            <h2>Registered Events & Scores</h2>
+            <h2>Registered Events & Results</h2>
             <table>
                 <tr>
                     <th>Event Name</th>
-                    <th>Participating Team</th>
+                    <th>Team</th>
                     <th>Date</th>
-                    <th>Score</th> <!-- NEW COLUMN -->
+                    <th>Score</th>
+                    <th>Prize Won</th> <!-- NEW COLUMN -->
                 </tr>
                 <?php
-                // Updated Query to fetch score
-                $reg_sql = "SELECT e.event_name, e.event_date, t.tname, r.score 
+                // NEW JOIN QUERY: Connects prizes table to check for winnings
+                $reg_sql = "SELECT e.event_name, e.event_date, t.tname, r.score, 
+                                   pz.prize_name, pz.value as prize_value
                             FROM registrations r
                             JOIN events e ON r.event_id = e.event_id
                             JOIN teams t ON r.team_id = t.team_id
                             JOIN forms f ON t.team_id = f.t_id
+                            LEFT JOIN prizes pz ON t.team_id = pz.winning_team_id AND e.event_id = pz.event_id
                             WHERE f.p_id = $p_id
                             ORDER BY e.event_date";
                 $regs = $conn->query($reg_sql);
                 
                 if($regs->num_rows > 0) {
                     while($r = $regs->fetch_assoc()) {
-                        // Handle Score Display
                         $score_display = isset($r['score']) ? "<b style='color:#4cd137'>".$r['score']."</b>" : "<i style='color:#a2a8d3'>Pending</i>";
                         
+                        // PRIZE DISPLAY LOGIC
+                        $prize_display = "-";
+                        if (!empty($r['prize_name'])) {
+                            $prize_display = "🏆 <b style='color:#fbc531'>" . htmlspecialchars($r['prize_name']) . "</b>";
+                            if($r['prize_value'] > 0) {
+                                $prize_display .= " <span style='color:#fff; font-size:0.9rem;'>(₹" . number_format($r['prize_value']) . ")</span>";
+                            }
+                        }
+
                         echo "<tr>";
                         echo "<td>" . htmlspecialchars($r['event_name']) . "</td>";
                         echo "<td>" . htmlspecialchars($r['tname']) . "</td>";
                         echo "<td>" . htmlspecialchars($r['event_date']) . "</td>";
-                        echo "<td>" . $score_display . "</td>"; // SHOW SCORE
+                        echo "<td>" . $score_display . "</td>";
+                        echo "<td>" . $prize_display . "</td>"; // Display Prize
                         echo "</tr>";
                     }
                 } else {
-                    echo "<tr><td colspan='4'>No upcoming registrations.</td></tr>";
+                    echo "<tr><td colspan='5'>No upcoming registrations.</td></tr>";
                 }
                 ?>
             </table>
