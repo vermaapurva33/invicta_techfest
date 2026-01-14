@@ -1,4 +1,4 @@
-# 🚀 Techfest Management System
+# Techfest Management System
 
 ![PHP](https://img.shields.io/badge/Backend-PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)
 ![MySQL](https://img.shields.io/badge/Database-MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
@@ -9,7 +9,7 @@ A robust, full-stack web application designed to digitize the operations of a co
 
 ---
 
-## 📖 Project Overview
+## Project Overview
 
 This project serves as a centralized portal for managing:
 * **Participants:** Event registration, team formation, and accommodation booking.
@@ -20,16 +20,16 @@ Unlike standard CMS tools, this system implements **complex business logic at th
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-### 🔐 1. Role-Based Access Control (RBAC)
+### 1. Role-Based Access Control (RBAC)
 Secure login and dashboard isolation for four distinct user types:
 * **Admin:** Full system oversight.
 * **Club Heads:** Create events, assign judges, and manage sponsors.
 * **Judges:** View assigned events and submit scores.
 * **Participants:** Register for events and book stays.
 
-### ⚙️ 2. Advanced Business Logic
+### 2. Advanced Business Logic
 * **Temporal Constraints:**
     * Accommodation Check-in/Check-out dates are validated against the fest duration.
     * *Logic:* `Fest_Start <= Check_In < Check_Out <= Fest_End`.
@@ -39,17 +39,17 @@ Secure login and dashboard isolation for four distinct user types:
     * Validates team size limits per event.
     * Ensures team members are not already registered for conflicting events.
 
-### 🏆 3. Automated Scoring System
+### 3. Automated Scoring System
 * **Real-time Aggregation:** When a judge submits scores, the backend automatically calculates totals.
 * **Instant Result Publication:** A "Publish" trigger updates the participant dashboard with ranks and prize status immediately.
 
-### 🏨 4. Resource Management
+### 4. Resource Management
 * **Accommodation:** Real-time tracking of available rooms/beds.
 * **Sponsorship:** Management of sponsor tiers and monetary contributions.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 * **Frontend:** HTML5, CSS3, JavaScript (Vanilla)
 * **Backend:** PHP (Native)
@@ -58,7 +58,7 @@ Secure login and dashboard isolation for four distinct user types:
 
 ---
 
-## 💾 Database Schema
+## Database Schema
 
 The system utilizes a **normalized relational database** to ensure data integrity. Key relationships include:
 * `Users` ↔ `Roles` (One-to-Many)
@@ -67,7 +67,7 @@ The system utilizes a **normalized relational database** to ensure data integrit
 
 ---
 
-## 🚀 Setup & Installation
+## Setup & Installation
 
 ### Prerequisites
 * [XAMPP](https://www.apachefriends.org/index.html) installed on your local machine.
